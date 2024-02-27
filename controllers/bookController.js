@@ -1,8 +1,16 @@
 import asyncHandler from "express-async-handler";
 import fs from "fs";
 import path from "path";
-import sharp from "sharp";
 import BookModel from "../models/bookModel.js";
+
+const deleteImageIfError = (req) => {
+  if (req.file) {
+    fs.unlinkSync(path.join(process.cwd(), req.file.path));
+    fs.unlinkSync(
+      path.join(process.cwd(), "images", "resized_" + req.file.filename)
+    );
+  }
+};
 
 export const bookController = {
   bestRatingBooks: asyncHandler(async (req, res) => {
@@ -58,46 +66,34 @@ export const bookController = {
       const book = JSON.parse(req.body.book);
       const title = book.title;
       if (!title) {
+        deleteImageIfError(req);
         return res.status(400).json({ message: "Title is required" });
       }
       const existingTitle = await BookModel.find({ title: title });
       if (existingTitle && existingTitle.length > 0) {
-        if (req.file) {
-          fs.unlinkSync(process.cwd() + "/" + req.file.path);
-        }
+        deleteImageIfError(req);
         return res.status(400).json({ message: "Title already exists" });
       }
       const author = book.author;
       if (!author) {
+        deleteImageIfError(req);
         return res.status(400).json({ message: "Author is required" });
       }
       const year = book.year;
       if (!year) {
+        deleteImageIfError(req);
         return res.status(400).json({ message: "Year is required" });
       }
       const genre = book.genre;
       if (!genre) {
+        deleteImageIfError(req);
         return res.status(400).json({ message: "Genre is required" });
-      }
-      try {
-        //resize image
-        await sharp(path.join(process.cwd(), req.file.path))
-          .resize({
-            width: 206,
-            height: 260,
-          })
-          .toFile(
-            path.join(process.cwd(), "images", "resized_" + req.file.filename)
-          );
-        //delete original image
-        fs.unlinkSync(path.join(process.cwd(), req.file.path));
-      } catch (error) {
-        console.log(`An error occurred during processing: ${error}`);
       }
       const imageUrl = `${req.protocol}://${req.get("host")}/${path.join(
         "images",
         "resized_" + req.file.filename
       )}`;
+
       await BookModel.create({
         userId,
         title,
@@ -110,6 +106,7 @@ export const bookController = {
       });
       return res.status(201).json({ message: "Book created successefully" });
     } catch (err) {
+      console.log(err);
       return res.status(500).json({ message: "Something went wrong" });
     }
   }),
@@ -137,21 +134,6 @@ export const bookController = {
           } catch (err) {
             console.log(err);
           }
-        }
-        try {
-          //resize image
-          await sharp(path.join(process.cwd(), req.file.path))
-            .resize({
-              width: 206,
-              height: 260,
-            })
-            .toFile(
-              path.join(process.cwd(), "images", "resized_" + req.file.filename)
-            );
-          //delete original image
-          fs.unlinkSync(path.join(process.cwd(), req.file.path));
-        } catch (error) {
-          console.log(`An error occurred during processing: ${error}`);
         }
         const imageUrl = `${req.protocol}://${req.get("host")}/${path.join(
           "images",
